@@ -1,15 +1,18 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useData } from '../context/DataContext';
-import { User, Phone, Home, Plus, Search, X, ArrowDownLeft, ArrowUpRight, Receipt, AlertCircle, Bell, Check } from 'lucide-react';
+import { User, Phone, Home, Plus, Search, X, ArrowDownLeft, ArrowUpRight, Receipt, AlertCircle, Bell, Check, Wallet, CheckSquare } from 'lucide-react';
 import { Tenant, TransactionType } from '../types';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 const Tenants: React.FC = () => {
-  const { tenants, properties, addTenant, transactions } = useData();
+  const { tenants, properties, addTenant, transactions, addTransaction } = useData();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedTenantId, setSelectedTenantId] = useState<string | null>(null);
   const [remindedTenants, setRemindedTenants] = useState<Set<string>>(new Set());
+  
+  // Bulk Selection State
+  const [selectedTenantIds, setSelectedTenantIds] = useState<Set<string>>(new Set());
 
   const [formData, setFormData] = useState<Omit<Tenant, 'id'>>({
     name: '',
@@ -65,6 +68,61 @@ const Tenants: React.FC = () => {
     tenant.phone.includes(searchQuery)
   );
 
+  // Bulk Action Handlers
+  const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.checked) {
+      setSelectedTenantIds(new Set(filteredTenants.map(t => t.id)));
+    } else {
+      setSelectedTenantIds(new Set());
+    }
+  };
+
+  const handleSelectTenant = (id: string) => {
+    const newSelected = new Set(selectedTenantIds);
+    if (newSelected.has(id)) {
+      newSelected.delete(id);
+    } else {
+      newSelected.add(id);
+    }
+    setSelectedTenantIds(newSelected);
+  };
+
+  const handleBulkRemind = () => {
+    const count = selectedTenantIds.size;
+    if (count === 0) return;
+    
+    if (window.confirm(`Send payment reminders to ${count} selected tenants?`)) {
+      setRemindedTenants(prev => {
+        const next = new Set(prev);
+        selectedTenantIds.forEach(id => next.add(id));
+        return next;
+      });
+      setSelectedTenantIds(new Set()); // Reset selection
+    }
+  };
+
+  const handleBulkPay = () => {
+    const count = selectedTenantIds.size;
+    if (count === 0) return;
+
+    if (window.confirm(`Mark ${count} selected tenants as paid? This will record a payment transaction for their monthly rent.`)) {
+      selectedTenantIds.forEach(id => {
+        const tenant = tenants.find(t => t.id === id);
+        if (tenant) {
+          addTransaction({
+            tenantId: tenant.id,
+            propertyId: tenant.propertyId,
+            type: TransactionType.RENT_PAYMENT,
+            date: new Date().toISOString(),
+            totalAmount: tenant.monthlyRent,
+            description: 'Bulk Payment: Marked as Paid'
+          });
+        }
+      });
+      setSelectedTenantIds(new Set()); // Reset selection
+    }
+  };
+
   // Ledger Logic
   const selectedTenant = tenants.find(t => t.id === selectedTenantId);
   const tenantTransactions = transactions
@@ -72,7 +130,7 @@ const Tenants: React.FC = () => {
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
   // Chart Logic
-  const paymentHistoryData = React.useMemo(() => {
+  const paymentHistoryData = useMemo(() => {
     if (!selectedTenantId) return [];
     
     // Initialize last 6 months
@@ -101,8 +159,10 @@ const Tenants: React.FC = () => {
     return data;
   }, [selectedTenantId, tenantTransactions]);
 
+  const allSelected = filteredTenants.length > 0 && selectedTenantIds.size === filteredTenants.length;
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pb-20 relative">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Tenants</h1>
@@ -133,6 +193,16 @@ const Tenants: React.FC = () => {
           <table className="w-full text-left">
             <thead className="bg-gray-50 text-gray-500 text-xs uppercase font-medium">
               <tr>
+                <th className="px-6 py-4 w-12">
+                   <div className="flex items-center">
+                    <input 
+                      type="checkbox"
+                      className="w-4 h-4 text-primary-600 rounded border-gray-300 focus:ring-primary-500 cursor-pointer"
+                      checked={allSelected}
+                      onChange={handleSelectAll}
+                    />
+                  </div>
+                </th>
                 <th className="px-6 py-4">Tenant</th>
                 <th className="px-6 py-4">Property</th>
                 <th className="px-6 py-4">Rent</th>
@@ -143,7 +213,17 @@ const Tenants: React.FC = () => {
             <tbody className="divide-y divide-gray-100">
               {filteredTenants.length > 0 ? (
                 filteredTenants.map((tenant) => (
-                  <tr key={tenant.id} className="hover:bg-gray-50 transition-colors">
+                  <tr key={tenant.id} className={`hover:bg-gray-50 transition-colors ${selectedTenantIds.has(tenant.id) ? 'bg-primary-50/30' : ''}`}>
+                    <td className="px-6 py-4">
+                      <div className="flex items-center">
+                        <input 
+                          type="checkbox"
+                          className="w-4 h-4 text-primary-600 rounded border-gray-300 focus:ring-primary-500 cursor-pointer"
+                          checked={selectedTenantIds.has(tenant.id)}
+                          onChange={() => handleSelectTenant(tenant.id)}
+                        />
+                      </div>
+                    </td>
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center text-gray-500">
@@ -208,7 +288,7 @@ const Tenants: React.FC = () => {
                 ))
               ) : (
                 <tr>
-                  <td colSpan={5} className="px-6 py-12 text-center text-gray-500">
+                  <td colSpan={6} className="px-6 py-12 text-center text-gray-500">
                     <div className="flex flex-col items-center justify-center gap-2">
                       <Search size={32} className="text-gray-300" />
                       <p>No tenants found matching "{searchQuery}"</p>
@@ -220,6 +300,35 @@ const Tenants: React.FC = () => {
           </table>
         </div>
       </div>
+
+      {/* Bulk Action Bar */}
+      {selectedTenantIds.size > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-white px-6 py-3 rounded-full shadow-xl border border-gray-200 z-40 flex items-center gap-6 animate-in slide-in-from-bottom-4 duration-300">
+          <div className="flex items-center gap-2 text-gray-900">
+             <div className="bg-gray-900 text-white text-xs font-bold px-2 py-0.5 rounded-full min-w-[20px] text-center">
+               {selectedTenantIds.size}
+             </div>
+             <span className="font-medium text-sm">Selected</span>
+          </div>
+          <div className="h-6 w-px bg-gray-200"></div>
+          <div className="flex items-center gap-2">
+            <button 
+              onClick={handleBulkRemind} 
+              className="flex items-center gap-2 text-gray-600 hover:text-primary-600 hover:bg-primary-50 px-3 py-1.5 rounded-lg transition-colors text-sm font-medium"
+            >
+              <Bell size={16} />
+              <span className="hidden sm:inline">Send Reminder</span>
+            </button>
+            <button 
+              onClick={handleBulkPay} 
+              className="flex items-center gap-2 text-gray-600 hover:text-emerald-600 hover:bg-emerald-50 px-3 py-1.5 rounded-lg transition-colors text-sm font-medium ml-1"
+            >
+              <Wallet size={16} />
+              <span className="hidden sm:inline">Mark as Paid</span>
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Add Tenant Modal */}
       {isModalOpen && (
@@ -285,4 +394,123 @@ const Tenants: React.FC = () => {
       {/* Ledger Modal */}
       {selectedTenant && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-4xl h-[80vh] flex flex-col overflow-hidden">
+            {/* Modal Header */}
+            <div className="p-6 border-b border-gray-100 flex justify-between items-start bg-gray-50">
+               <div>
+                 <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+                   {selectedTenant.name}
+                   <span className={`text-sm px-2 py-0.5 rounded-full border font-normal ${getStatusColor(selectedTenant.currentBalance)}`}>
+                     {getStatusText(selectedTenant.currentBalance)}
+                   </span>
+                 </h2>
+                 <p className="text-gray-500 text-sm mt-1 flex items-center gap-2">
+                   <Home size={14} /> {properties.find(p => p.id === selectedTenant.propertyId)?.name}
+                   <span className="text-gray-300">|</span>
+                   <Phone size={14} /> {selectedTenant.phone}
+                 </p>
+               </div>
+               <button 
+                 onClick={() => setSelectedTenantId(null)}
+                 className="p-2 text-gray-400 hover:bg-gray-200 hover:text-gray-600 rounded-full transition-colors"
+               >
+                 <X size={24} />
+               </button>
+            </div>
+
+            {/* Modal Content - Chart & Scrollable Table */}
+            <div className="flex-1 overflow-y-auto p-0">
+               {/* Chart Section */}
+               <div className="p-6 border-b border-gray-100 bg-white">
+                 <h3 className="text-sm font-semibold text-gray-700 mb-4">Payment History (6 Months)</h3>
+                 <div className="h-48 w-full">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={paymentHistoryData} margin={{top: 0, right: 0, left: -20, bottom: 0}}>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
+                        <XAxis dataKey="name" tick={{fontSize: 12, fill: '#9ca3af'}} axisLine={false} tickLine={false} />
+                        <YAxis tick={{fontSize: 12, fill: '#9ca3af'}} axisLine={false} tickLine={false} tickFormatter={(value) => `₹${value}`} />
+                        <Tooltip 
+                          cursor={{fill: '#f9fafb'}}
+                          contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                          formatter={(value: number) => [`₹${value.toLocaleString()}`, 'Paid']}
+                        />
+                        <Bar dataKey="amount" fill="#10b981" radius={[4, 4, 0, 0]} barSize={40} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                 </div>
+               </div>
+
+               {tenantTransactions.length > 0 ? (
+                 <table className="w-full text-left">
+                   <thead className="bg-gray-50 text-gray-500 text-xs uppercase font-medium sticky top-0 z-10">
+                     <tr>
+                       <th className="px-6 py-4 bg-gray-50">Date</th>
+                       <th className="px-6 py-4 bg-gray-50">Type</th>
+                       <th className="px-6 py-4 bg-gray-50">Description</th>
+                       <th className="px-6 py-4 bg-gray-50 text-right">Amount</th>
+                     </tr>
+                   </thead>
+                   <tbody className="divide-y divide-gray-100">
+                     {tenantTransactions.map((tx) => (
+                       <tr key={tx.id} className="hover:bg-gray-50 transition-colors">
+                         <td className="px-6 py-4 text-sm text-gray-600 whitespace-nowrap">
+                           {new Date(tx.date).toLocaleDateString()}
+                         </td>
+                         <td className="px-6 py-4">
+                            <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium border
+                              ${tx.type === TransactionType.RENT_PAYMENT ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 
+                                tx.type === TransactionType.RENT_DUE ? 'bg-gray-100 text-gray-700 border-gray-200' :
+                                'bg-orange-50 text-orange-700 border-orange-100'}
+                            `}>
+                              {tx.type === TransactionType.RENT_PAYMENT ? <ArrowDownLeft size={12} /> : 
+                               tx.type === TransactionType.RENT_DUE ? <Receipt size={12} /> : <AlertCircle size={12} />}
+                              {tx.type === TransactionType.RENT_PAYMENT ? 'Payment' : 
+                               tx.type === TransactionType.RENT_DUE ? 'Rent Due' : 'Charge'}
+                            </span>
+                         </td>
+                         <td className="px-6 py-4 text-sm text-gray-900">
+                           {tx.description || (
+                             tx.type === TransactionType.RENT_PAYMENT ? 'Rent Payment' : 
+                             tx.type === TransactionType.RENT_DUE ? 'Monthly Rent Charge' : 'Charge'
+                           )}
+                           {tx.deductionAmount ? (
+                             <div className="text-xs text-rose-500 mt-0.5">
+                               Includes deduction: {tx.deductionReason} (-₹{tx.deductionAmount})
+                             </div>
+                           ) : null}
+                         </td>
+                         <td className={`px-6 py-4 text-sm font-bold text-right
+                           ${tx.type === TransactionType.RENT_PAYMENT ? 'text-emerald-600' : 'text-gray-900'}
+                         `}>
+                           {tx.type === TransactionType.RENT_PAYMENT ? '-' : '+'}
+                           ₹{(tx.totalAmount + (tx.deductionAmount || 0)).toLocaleString()}
+                         </td>
+                       </tr>
+                     ))}
+                   </tbody>
+                 </table>
+               ) : (
+                 <div className="flex flex-col items-center justify-center py-12 text-gray-400">
+                   <Receipt size={48} className="mb-4 opacity-20" />
+                   <p>No transaction history found for this tenant.</p>
+                 </div>
+               )}
+            </div>
+             
+             {/* Modal Footer */}
+             <div className="p-4 border-t border-gray-100 bg-gray-50 flex justify-end">
+                <button 
+                  onClick={() => setSelectedTenantId(null)}
+                  className="px-4 py-2 bg-white border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  Close
+                </button>
+             </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default Tenants;
