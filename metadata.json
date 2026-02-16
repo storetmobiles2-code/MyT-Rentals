@@ -1,0 +1,5 @@
+{
+  "name": "myT Rentals",
+  "description": "A specialized tenant and rental management application focusing on split-payments, rolling balances, and financial tracking for property owners.",
+  "requestFramePermissions": []
+}
