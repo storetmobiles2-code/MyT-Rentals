@@ -2,42 +2,56 @@ import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
-import { ArrowRight, Lock, User, Mail, Loader2 } from 'lucide-react';
+import { ArrowRight, Lock, User, Mail, Loader2, AlertTriangle } from 'lucide-react';
 
 const Signup: React.FC = () => {
   const [name, setName] = useState('');
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [googleError, setGoogleError] = useState<string | null>(null);
   const { signup, loginWithGoogle } = useAuth();
   const { showToast } = useToast();
   const navigate = useNavigate();
 
   // REPLACE THIS WITH YOUR ACTUAL GOOGLE CLIENT ID
+  // For GitHub Pages, you MUST add "https://<username>.github.io" to "Authorized Javascript Origins" in Google Cloud Console
   const GOOGLE_CLIENT_ID = "YOUR_GOOGLE_CLIENT_ID";
 
   useEffect(() => {
+    // Check for placeholder ID
+    if (GOOGLE_CLIENT_ID === "YOUR_GOOGLE_CLIENT_ID") {
+      setGoogleError("Google Sign-In disabled: Missing Client ID.");
+      return;
+    }
+
     const initializeGoogle = () => {
       if (window.google && window.google.accounts) {
-        window.google.accounts.id.initialize({
-          client_id: GOOGLE_CLIENT_ID,
-          callback: async (response: any) => {
-            try {
-              await loginWithGoogle(response.credential);
-              showToast('Account created with Google!', 'success');
-              navigate('/');
-            } catch (error: any) {
-              showToast('Google sign up failed', 'error');
+        try {
+          window.google.accounts.id.initialize({
+            client_id: GOOGLE_CLIENT_ID,
+            callback: async (response: any) => {
+              try {
+                await loginWithGoogle(response.credential);
+                showToast('Account created with Google!', 'success');
+                navigate('/');
+              } catch (error: any) {
+                showToast('Google sign up failed', 'error');
+                console.error("Google Signup Error:", error);
+              }
             }
+          });
+          
+          const buttonDiv = document.getElementById("google-signup-btn");
+          if (buttonDiv) {
+            window.google.accounts.id.renderButton(
+              buttonDiv,
+              { theme: "outline", size: "large", width: "100%", text: "signup_with" }
+            );
           }
-        });
-        
-        const buttonDiv = document.getElementById("google-signup-btn");
-        if (buttonDiv) {
-          window.google.accounts.id.renderButton(
-            buttonDiv,
-            { theme: "outline", size: "large", width: "100%", text: "signup_with" }
-          );
+        } catch (err) {
+          console.error("GSI Initialization Error:", err);
+          setGoogleError("Failed to load Google Sign-In");
         }
       }
     };
@@ -82,7 +96,16 @@ const Signup: React.FC = () => {
 
         <div className="px-8 pb-6">
           {/* Google Button Container */}
-          <div id="google-signup-btn" className="w-full flex justify-center h-[40px]"></div>
+          <div className="min-h-[40px]">
+             {googleError ? (
+               <div className="flex items-center gap-2 p-3 bg-orange-50 text-orange-700 text-xs rounded-lg border border-orange-100">
+                 <AlertTriangle size={16} className="shrink-0" />
+                 {googleError}
+               </div>
+             ) : (
+               <div id="google-signup-btn" className="w-full flex justify-center h-[40px]"></div>
+             )}
+           </div>
 
            <div className="relative flex py-5 items-center">
             <div className="flex-grow border-t border-gray-200"></div>

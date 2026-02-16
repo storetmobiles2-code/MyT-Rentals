@@ -46,6 +46,15 @@
         font-family: 'Inter', sans-serif;
         background-color: #f3f4f6;
       }
+      /* Simple loading spinner for initial load */
+      .initial-loader {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+        color: #059669;
+        font-weight: 600;
+      }
     </style>
   <script type="importmap">
 {
@@ -55,13 +64,17 @@
     "react-dom/": "https://esm.sh/react-dom@^19.2.4/",
     "lucide-react": "https://esm.sh/lucide-react@^0.564.0",
     "recharts": "https://esm.sh/recharts@^3.7.0",
-    "react-router-dom": "https://esm.sh/react-router-dom@^7.13.0"
+    "react-router-dom": "https://esm.sh/react-router-dom@^7.13.0",
+    "@vitejs/plugin-react": "https://esm.sh/@vitejs/plugin-react@^5.1.4",
+    "vite": "https://esm.sh/vite@^7.3.1"
   }
 }
 </script>
 </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <div class="initial-loader">Loading App...</div>
+    </div>
     <script type="module" src="./index.tsx"></script>
   </body>
 </html>
