@@ -52,3 +52,10 @@ export interface DashboardStats {
   totalProperties: number;
   occupancyRate: number;
 }
+
+export interface User {
+  id: string;
+  name: string;
+  email: string; // Used for login (email or phone)
+  picture?: string;
+}

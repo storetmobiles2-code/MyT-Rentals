@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { Property, Tenant, Transaction, TransactionType, DashboardStats } from '../types';
+import { useAuth } from './AuthContext';
 
 interface DataContextType {
   properties: Property[];
@@ -15,44 +16,36 @@ interface DataContextType {
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
 
-// Initial Mock Data (Fallback)
+// Initial Mock Data (Fallback for new users)
 const INITIAL_PROPERTIES: Property[] = [
   { id: '1', name: 'Sunrise Apts', address: '123 Market St', type: 'Apartment', ownerName: 'John Doe' },
-  { id: '2', name: 'Downtown Commercial', address: '456 Main Blvd', type: 'Commercial', ownerName: 'Jane Smith' },
 ];
 
 const INITIAL_TENANTS: Tenant[] = [
   { id: 't1', propertyId: '1', name: 'Alice Johnson', phone: '555-0101', monthlyRent: 1200, leaseStart: '2023-01-01', currentBalance: 0 },
-  { id: 't2', propertyId: '1', name: 'Bob Williams', phone: '555-0102', monthlyRent: 1500, leaseStart: '2023-02-15', currentBalance: 1500 },
-  { id: 't3', propertyId: '2', name: 'Tech Solutions Inc', phone: '555-0103', monthlyRent: 5000, leaseStart: '2022-06-01', currentBalance: -200 },
 ];
 
-const INITIAL_TRANSACTIONS: Transaction[] = [
-  { 
-    id: 'tx1', 
-    tenantId: 't1', 
-    propertyId: '1', 
-    type: TransactionType.RENT_PAYMENT, 
-    date: new Date().toISOString(), 
-    totalAmount: 1200, 
-    splits: [{ receiverName: 'John', amount: 1200 }],
-    deductionAmount: 0
-  }
-];
-
-const STORAGE_KEY_PREFIX = 'myt_rentals_v1_';
-
-const loadFromStorage = <T,>(key: string, fallback: T): T => {
-  try {
-    const item = localStorage.getItem(STORAGE_KEY_PREFIX + key);
-    return item ? JSON.parse(item) : fallback;
-  } catch (error) {
-    console.warn(`Failed to load ${key} from storage`, error);
-    return fallback;
-  }
-};
+const INITIAL_TRANSACTIONS: Transaction[] = [];
 
 export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+  const { user } = useAuth();
+  
+  if (!user) {
+    throw new Error("DataProvider must be used within an authenticated context");
+  }
+
+  const STORAGE_KEY_PREFIX = `myt_rentals_${user.id}_`;
+
+  const loadFromStorage = <T,>(key: string, fallback: T): T => {
+    try {
+      const item = localStorage.getItem(STORAGE_KEY_PREFIX + key);
+      return item ? JSON.parse(item) : fallback;
+    } catch (error) {
+      console.warn(`Failed to load ${key} from storage`, error);
+      return fallback;
+    }
+  };
+
   const [properties, setProperties] = useState<Property[]>(() => 
     loadFromStorage('properties', INITIAL_PROPERTIES)
   );
@@ -63,18 +56,18 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     loadFromStorage('transactions', INITIAL_TRANSACTIONS)
   );
 
-  // Persistence Effects
+  // Persistence Effects - Keyed by User ID
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY_PREFIX + 'properties', JSON.stringify(properties));
-  }, [properties]);
+  }, [properties, STORAGE_KEY_PREFIX]);
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY_PREFIX + 'tenants', JSON.stringify(tenants));
-  }, [tenants]);
+  }, [tenants, STORAGE_KEY_PREFIX]);
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY_PREFIX + 'transactions', JSON.stringify(transactions));
-  }, [transactions]);
+  }, [transactions, STORAGE_KEY_PREFIX]);
 
   // Derived Stats
   const stats: DashboardStats = {
