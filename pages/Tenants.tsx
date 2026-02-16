@@ -1,11 +1,13 @@
 import React, { useState, useMemo } from 'react';
 import { useData } from '../context/DataContext';
+import { useToast } from '../context/ToastContext';
 import { User, Phone, Home, Plus, Search, X, ArrowDownLeft, ArrowUpRight, Receipt, AlertCircle, Bell, Check, Wallet, CheckSquare } from 'lucide-react';
 import { Tenant, TransactionType } from '../types';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 const Tenants: React.FC = () => {
   const { tenants, properties, addTenant, transactions, addTransaction } = useData();
+  const { showToast } = useToast();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedTenantId, setSelectedTenantId] = useState<string | null>(null);
@@ -26,6 +28,7 @@ const Tenants: React.FC = () => {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     addTenant(formData);
+    showToast(`Tenant ${formData.name} added successfully`, 'success');
     setIsModalOpen(false);
     setFormData({
       name: '',
@@ -38,6 +41,8 @@ const Tenants: React.FC = () => {
   };
 
   const handleRemind = (tenant: Tenant) => {
+    // In production, you might replace window.confirm with a custom modal,
+    // but here we keep it simple for critical actions.
     if (window.confirm(`Send payment reminder to ${tenant.name} (${tenant.phone})?`)) {
       setRemindedTenants(prev => {
         const next = new Set(prev);
@@ -46,7 +51,7 @@ const Tenants: React.FC = () => {
       });
       // Simulate API call delay
       setTimeout(() => {
-        // Ideally show a toast here
+        showToast(`Reminder sent to ${tenant.name}`, 'success');
       }, 500);
     }
   };
@@ -97,6 +102,7 @@ const Tenants: React.FC = () => {
         selectedTenantIds.forEach(id => next.add(id));
         return next;
       });
+      showToast(`Sent reminders to ${count} tenants`, 'success');
       setSelectedTenantIds(new Set()); // Reset selection
     }
   };
@@ -119,6 +125,7 @@ const Tenants: React.FC = () => {
           });
         }
       });
+      showToast(`Recorded payments for ${count} tenants`, 'success');
       setSelectedTenantIds(new Set()); // Reset selection
     }
   };

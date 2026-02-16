@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useData } from '../context/DataContext';
+import { useToast } from '../context/ToastContext';
 import { User, Plus, Trash2, PenTool, CheckCircle, Split, CheckCircle2 } from 'lucide-react';
 import { TransactionType, TransactionSplit } from '../types';
 
 const AddTransaction: React.FC = () => {
   const { tenants, addTransaction } = useData();
+  const { showToast } = useToast();
   const navigate = useNavigate();
 
   // Basic Details
@@ -77,7 +79,8 @@ const AddTransaction: React.FC = () => {
       deductionAmount: hasDeduction ? deductionAmount : 0,
       deductionReason: hasDeduction ? deductionReason : undefined,
     });
-
+    
+    showToast('Payment recorded successfully', 'success');
     navigate('/transactions');
   };
 

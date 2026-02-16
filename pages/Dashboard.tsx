@@ -1,10 +1,17 @@
 import React from 'react';
 import { useData } from '../context/DataContext';
+import { useToast } from '../context/ToastContext';
 import { ArrowUpRight, ArrowDownRight, Users, Wallet, AlertCircle } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 const Dashboard: React.FC = () => {
   const { stats, transactions, tenants, generateMonthlyRent } = useData();
+  const { showToast } = useToast();
+
+  const handleSimulateMonth = () => {
+    generateMonthlyRent();
+    showToast('Simulated new month: Rent charges applied.', 'info');
+  };
 
   const recentTransactions = transactions.slice(0, 5);
 
@@ -16,8 +23,8 @@ const Dashboard: React.FC = () => {
           <p className="text-gray-500">Overview of your rental business</p>
         </div>
         <button 
-          onClick={generateMonthlyRent}
-          className="text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg transition-colors border border-gray-300"
+          onClick={handleSimulateMonth}
+          className="text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg transition-colors border border-gray-300 shadow-sm"
         >
           Simulate New Month
         </button>

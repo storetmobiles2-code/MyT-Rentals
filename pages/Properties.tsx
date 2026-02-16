@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
 import { useData } from '../context/DataContext';
+import { useToast } from '../context/ToastContext';
 import { Building, MapPin, Plus } from 'lucide-react';
 import { Property, PropertyType } from '../types';
 
 const Properties: React.FC = () => {
   const { properties, addProperty } = useData();
+  const { showToast } = useToast();
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   // Form State
@@ -18,6 +20,7 @@ const Properties: React.FC = () => {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     addProperty(formData);
+    showToast('Property added successfully', 'success');
     setIsModalOpen(false);
     setFormData({ name: '', address: '', type: 'Apartment', ownerName: '' });
   };
@@ -63,6 +66,14 @@ const Properties: React.FC = () => {
             </div>
           </div>
         ))}
+        
+        {properties.length === 0 && (
+          <div className="col-span-full flex flex-col items-center justify-center py-16 text-gray-400 bg-white rounded-xl border border-dashed border-gray-300">
+            <Building size={48} className="mb-4 opacity-20" />
+            <p className="text-lg font-medium text-gray-600">No properties added yet</p>
+            <p className="text-sm">Click "Add Property" to get started</p>
+          </div>
+        )}
       </div>
 
       {/* Add Property Modal */}
